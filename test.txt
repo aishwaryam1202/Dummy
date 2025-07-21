@@ -1,0 +1,106 @@
+@echo off
+setlocal enabledelayedexpansion
+
+REM Set the root directory to start traversal
+set "ROOT_DIR=C:\path\to\start"
+
+REM Start recursive traversal from ROOT_DIR
+call :traverse "%ROOT_DIR%"
+goto :eof
+
+REM Subroutine to recursively traverse folders
+:traverse
+setlocal
+set "CURRENT_DIR=%~1"
+
+REM Get current folder name
+for %%I in ("%CURRENT_DIR%") do set "FOLDER_NAME=%%~nxI"
+
+REM Check folder name and call respective handler
+if /i "!FOLDER_NAME!"=="A" (
+    REM For folder named A, recursively process to the deepest level where folder contains only Excel files
+    endlocal
+    call :process_excel_only "%CURRENT_DIR%"
+    goto :eof
+) else if /i "!FOLDER_NAME!"=="B" (
+    REM For folder named B, recursively process to the deepest level where folder contains only Excel files
+    endlocal
+    call :process_excel_only "%CURRENT_DIR%"
+    goto :eof
+)
+
+REM Continue traversal into subfolders
+for /d %%D in ("%CURRENT_DIR%\*") do (
+    endlocal
+    call :traverse "%%D"
+    setlocal enabledelayedexpansion
+)
+endlocal & goto :eof
+
+REM Process folder named A or B similarly:
+REM This subroutine recursively searches for subfolders containing only Excel files and executes commands there
+:process_excel_only
+setlocal enabledelayedexpansion
+set "DIR=%~1"
+
+REM Recursively process all subfolders first
+for /d %%S in ("%DIR%\*") do (
+    endlocal
+    call :process_excel_only "%%S"
+    setlocal enabledelayedexpansion
+)
+
+REM After processing all subfolders, check if the current folder contains only Excel files and no subfolders
+call :folder_excel_only "%DIR%"
+if %ERRORLEVEL%==0 (
+    echo [INFO] Running commands in Excel-only folder: "%DIR%"
+    pushd "%DIR%"
+    REM === Place your multi-line commands below ===
+    echo Running command 1 in %DIR%
+    echo Running command 2 in %DIR%
+    REM Add more commands as needed
+    popd
+)
+endlocal & goto :eof
+
+REM Check if folder contains only Excel files (xls, xlsx, xlsm) and no subfolders
+REM Return 0 if true else 1
+:folder_excel_only
+setlocal enabledelayedexpansion
+set "CHECK_DIR=%~1"
+set "HAS_SUBFOLDER=false"
+set "HAS_OTHER_FILES=false"
+set "HAS_EXCEL_FILES=false"
+
+REM Check for subfolders
+for /d %%D in ("%CHECK_DIR%\*") do (
+    set "HAS_SUBFOLDER=true"
+    goto :folder_excel_only_end
+)
+
+REM Check files
+for %%F in (%CHECK_DIR%\*) do (
+    if exist "%%F" (
+        set "EXT=%%~xF"
+        REM Check extensions case-insensitively
+        if /i "%%~xF"==".xls"  set "HAS_EXCEL_FILES=true" & goto :filecheck_continue
+        if /i "%%~xF"==".xlsx" set "HAS_EXCEL_FILES=true" & goto :filecheck_continue
+        if /i "%%~xF"==".xlsm" set "HAS_EXCEL_FILES=true" & goto :filecheck_continue
+        set "HAS_OTHER_FILES=true"
+        goto :folder_excel_only_end
+    )
+    :filecheck_continue
+)
+
+:folder_excel_only_end
+REM Determine final result:
+if "!HAS_SUBFOLDER!"=="true" (
+    endlocal & exit /b 1
+) else if "!HAS_OTHER_FILES!"=="true" (
+    endlocal & exit /b 1
+) else if "!HAS_EXCEL_FILES!"=="true" (
+    endlocal & exit /b 0
+) else (
+    REM No files at all in folder
+    endlocal & exit /b 1
+)
